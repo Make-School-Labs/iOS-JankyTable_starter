@@ -30,28 +30,39 @@ class TableViewController: UITableViewController {
         return photosDict.count
     }
     
+    /* One concurrency-based solution to poor performance */
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CellIdentifier", for: indexPath)
         let rowKey = photos.allKeys[indexPath.row] as! String
         
-        var image : UIImage?
-        
-        guard let imageURL = URL(string:photos[rowKey] as! String),
-            let imageData = try? Data(contentsOf: imageURL) else {
-                return cell
-        }
-        
-        // Simulate a network wait
-        Thread.sleep(forTimeInterval: 1)
-        print("sleeping 1 sec")
-        
-        let unfilteredImage = UIImage(data:imageData)
-        image = self.applySepiaFilter(unfilteredImage!)
-        
-        // Configure the cell...
-        cell.textLabel?.text = rowKey
-        if image != nil {
-            cell.imageView?.image = image!
+        //TODO: Send filtering to BG queue, then set image on main queue...
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            
+            guard let self = self else {
+                return
+            }
+            var image : UIImage?
+            
+            guard let imageURL = URL(string:self.photos[rowKey] as! String),
+                let imageData = try? Data(contentsOf: imageURL) else {
+//                    return cell
+                    return
+            }
+            
+            // Simulate a network wait
+            Thread.sleep(forTimeInterval: 1)
+            print("sleeping 1 sec")
+            
+            let unfilteredImage = UIImage(data:imageData)
+            image = self.applySepiaFilter(unfilteredImage!)
+            
+            DispatchQueue.main.async {
+                // Configure the cell...
+                cell.textLabel?.text = rowKey
+                if image != nil {
+                    cell.imageView?.image = image!
+                }
+            }
         }
         return cell
     }
